@@ -7,7 +7,7 @@ Created on Aug 30, 2024
 import ttboard.util.platform as platform
 from ttboard.pins.upython import Pin
 import ttboard.pins.gpio_map
-from ttboard.pins.gpio_map import GPIOMapTT04, GPIOMapTT06
+from ttboard.pins.gpio_map import GPIOMapSPASIC
 
 import ttboard.log as logging
 log = logging.getLogger(__name__)
@@ -75,48 +75,12 @@ class DemoboardDetect:
     
     @classmethod 
     def probe_pullups(cls):
-        cena_pin = GPIOMapTT06.get_raw_pin(GPIOMapTT06.ctrl_enable(), Pin.IN)
-        # cinc_pin = GPIOMapTT06.get_raw_pin(GPIOMapTT06.ctrl_increment(), Pin.IN)
-        crst_pin = GPIOMapTT06.get_raw_pin(GPIOMapTT06.ctrl_reset(), Pin.IN)
+        log.info('Forcing TT06 DB for spasic')
+        cls.PCB = DemoboardVersion.TT06
+        cls.CarrierPresent = True
+        return True
         
-        crst = crst_pin()
-        cena = cena_pin()
-        
-        
-        if (not crst) and (not cena):
-            log.debug("ctrl mux lines pulled to indicate TT06+ carrier present--tt06+ db")
-            log.info("TT06+ demoboard with carrier present")
-            cls.PCB = DemoboardVersion.TT06
-            cls.CarrierPresent = True
-            return True
-        
-        if crst and cena:
-            log.info("probing ctrl mux lines gives no info, unable to determine db version")
-            log.warn("TT04 demoboard OR TT06 No carrier present")
-            cls.PCB = DemoboardVersion.UNKNOWN
-            cls.CarrierPresent = None
-        
-        return False
-        
-    @classmethod 
-    def probe_tt04mux(cls):
-        mux_pin = GPIOMapTT04.get_raw_pin(GPIOMapTT04.mux_select(), Pin.OUT)
-        cena_pin = GPIOMapTT04.get_raw_pin(GPIOMapTT04.ctrl_enable(), Pin.IN)
-        cinc_pin = GPIOMapTT04.get_raw_pin(GPIOMapTT04.ctrl_increment(), Pin.IN)
-        crst_pin = GPIOMapTT04.get_raw_pin(GPIOMapTT04.ctrl_reset(), Pin.IN)
-        
-        mux_pin(0)
-        mux_0 = [cena_pin(), cinc_pin(), crst_pin()]
-        
-        mux_pin(1)
-        mux_1 = [cena_pin(), cinc_pin(), crst_pin()]
-        if mux_1 != mux_0:
-            log.info("DB seems to have on-board MUX: TT04+")
-            cls.PCB = DemoboardVersion.TT04
-            return True
-        
-        log.debug("Mux twiddle has no effect, probably not TT04 db")
-        return False
+
     @classmethod 
     def rp_all_inputs(cls):
         log.debug("Setting all RP GPIO to INPUTS")
@@ -128,21 +92,8 @@ class DemoboardDetect:
         
     @classmethod 
     def probe(cls):
-        result = False
-        cls.rp_all_inputs()
-        if cls.probe_tt04mux():
-            cls._configure_gpiomap()
-            result = True 
-        elif cls.probe_pullups():
-            cls._configure_gpiomap()
-            result = True 
-        else:
-            log.debug("Neither pullup nor tt04mux tests conclusive, assuming TT06+ board")
-            cls.PCB = DemoboardVersion.TT06
-            cls._configure_gpiomap()
-            result = False
-        
-        # clear out boot prefix
+        result = True
+        cls._configure_gpiomap()
         return result
     
     @classmethod
@@ -152,17 +103,7 @@ class DemoboardDetect:
             
     @classmethod 
     def _configure_gpiomap(cls):
-        mapToUse = {
-            
-            DemoboardVersion.TT04: GPIOMapTT04,
-            DemoboardVersion.TT06: GPIOMapTT06
-            
-            }
-        if cls.PCB in mapToUse:
-            log.debug(f'Setting GPIOMap to {mapToUse[cls.PCB]}')
-            ttboard.pins.gpio_map.GPIOMap = mapToUse[cls.PCB]
-        else:
-            raise RuntimeError('Cannot set GPIO map')
+        ttboard.pins.gpio_map.GPIOMap = GPIOMapSPASIC
             
         
     

@@ -18,7 +18,6 @@ import ttboard
 import ttboard.util.time as time
 from ttboard.globals import Globals
 from ttboard.mode import RPMode
-from ttboard.pins.gpio_map import GPIOMapTT06
 from ttboard.pins.pins import Pins
 from ttboard.project_mux import Design
 from ttboard.config.user_config import UserConfig
@@ -144,9 +143,7 @@ class DemoBoard:
         self.pins.dieOnInputControlSwitchHigh = False
         self.pins.mode = pins_mode # force re-init of pins to apply new setting
         self.shuttle = Globals.project_mux(self.user_config.force_shuttle)
-        if self.shuttle.run == 'tt07':
-            GPIOMapTT06.tt07_cb_fix = True
-            self.pins.mode = pins_mode # force re-init of pins to apply new pin map
+        
         self.pins.dieOnInputControlSwitchHigh = True
         self.pins.mode = pins_mode # force re-init of pins to apply new setting
         
@@ -165,6 +162,8 @@ class DemoBoard:
             DemoBoard._DemoBoardSingleton_Instance = self 
             # clear-out boot prefix
             logging.LoggingPrefix = None
+        else:
+            raise RuntimeError('Call DemoBoard.get()!')
         
         
     def load_default_project(self):
@@ -282,21 +281,15 @@ class DemoBoard:
             reset_project(False) # now it ain't
         '''
         cur_mode = self.rst_n.mode
+        if cur_mode != Pins.OUT:
+            log.info("Changing reset to output mode")
+            self.rst_n.mode = Pins.OUT
         if putInReset:
-            if cur_mode != Pins.OUT:
-                log.info("Changing reset to output mode")
-                self.rst_n.mode = Pins.OUT
             self.rst_n(0) # inverted logic
         else:
-            # we don't want it in reset.
-            # demoboard has MOM switch and pull-ups to default 
-            # it in this way, so we just need to make it an input
-            # since this pin is on the MUX, we make certain that 
-            # the correct bank is selected by writing to it first
-            if cur_mode == Pins.OUT:
-                log.debug('Taking out of reset')
-                self.rst_n(1) 
-            self.rst_n.mode = Pins.IN
+            log.debug('Taking out of reset')
+            self.rst_n(1) 
+            
             
     def clock_project_once(self, msDelay:int=0):
         '''

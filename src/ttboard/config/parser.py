@@ -97,7 +97,11 @@ class ConfigParser:
             print("ERROR : no filename and no fp")
             raise
         elif not fp and filename:
-            fp = open(filename)
+            try:
+                fp = open(filename)
+            except OSError as e:
+                print(f"Prob opening {filename}")
+                raise e
 
         content = fp.read()
         fp.close()

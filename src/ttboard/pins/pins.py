@@ -45,7 +45,23 @@ import ttboard.log as logging
 log = logging.getLogger(__name__)
 
 
-
+class SPASICsMUXControl:
+    def __init__(self, all_pins, mctrlpin):
+        self._all_pins = all_pins
+        self._pin = mctrlpin 
+        
+    def mode_admin(self):
+        self._pin(1)
+        self._all_pins.cena.mode = Pin.OUT 
+        self._all_pins.cinc.mode = Pin.OUT
+        self._all_pins.ncrst.mode = Pin.OUT
+        
+    def mode_project_IO(self):
+        self._all_pins.cena.mode = Pin.IN 
+        self._all_pins.cinc.mode = Pin.IN
+        self._all_pins.ncrst.mode = Pin.IN
+        self._pin(0)
+        
 class Pins:
     '''
         This object handles setup and provides uniform named
@@ -129,20 +145,18 @@ class Pins:
     PULL_DOWN = Pin.PULL_DOWN
     PULL_UP = Pin.PULL_UP
     
-    # MUX pin is especial...
-    muxName = 'hk_csb' # special pin
-    
+    muxName = 'mux_ctrl'
     
     def __init__(self, mode:int=RPMode.SAFE):
         self.dieOnInputControlSwitchHigh = True
         self._mode = None
         self._allpins = {}
         if gp.GPIOMap.demoboard_uses_mux():
-            self.muxCtrl = MuxControl(self.muxName, gp.GPIOMap.mux_select(), Pin.OUT)
-            # special case: give access to mux control/HK nCS pin
-            self.hk_csb = self.muxCtrl.ctrlpin
-            self.pin_hk_csb = self.muxCtrl.ctrlpin.raw_pin 
-            self._allpins['hk_csb'] = self.hk_csb
+            mctrlpin = StandardPin(self.muxName, gp.GPIOMap.MUX_SELECT, Pin.OUT)
+            setattr(self, self.muxName, mctrlpin)
+            setattr(self, f'pin_mux_ctrl', mctrlpin.raw_pin)
+            self.muxCtrl = SPASICsMUXControl(self, mctrlpin)
+            
         
         self._init_ioports()
         self.mode = mode 
@@ -309,7 +323,7 @@ class Pins:
             p.mode = Pin.OUT 
             
     def _begin_muxPins(self):
-        if not gp.GPIOMap.demoboard_uses_mux():
+        if True: # disabled for spasics not gp.GPIOMap.demoboard_uses_mux():
             return 
         muxedPins = gp.GPIOMap.muxed_pairs()
         modeMap = gp.GPIOMap.muxed_pinmode_map(self.mode)
