@@ -326,7 +326,7 @@ class DemoBoard:
         self._clock_pwm.deinit()
         self._clock_pwm = None 
         
-    def clock_project_PWM(self, freqHz:int, duty_u16:int=(0xffff/2), quiet:bool=False, max_rp2040_freq:int=133_000_000):
+    def clock_project_PWM(self, freqHz:int, duty_u16:int=(0xffff/2), quiet:bool=False, max_rp2040_freq:int=0):
         '''
             Start an automatic clock for the selected project (using
             PWM).
@@ -344,6 +344,11 @@ class DemoBoard:
             if self._clock_pio is not None:
                 self._clock_pio.stop()
             return 
+
+        if max_rp2040_freq == 0:
+            max_rp2040_freq = 133_000_000
+            if freqHz * 2 > max_rp2040_freq and freqHz * 2 <= 250_000_000:
+                max_rp2040_freq = freqHz * 2
         
         if freqHz < 3:
             # make sure we're not PWMing
