@@ -20,7 +20,8 @@ from ttboard.project_mux import Design
 from ttboard.config.user_config import UserConfig
 import ttboard.util.platform as platform 
 from ttboard.boot.demoboard_detect import DemoboardDetect, DemoboardVersion, DemoboardCarrier
-
+from ttboard.pins.manual_clock import ManualClockPin
+from ttboard.pins.analog_current_source import AnalogCurrentSource
 import ttboard.log as logging
 log = logging.getLogger(__name__)
 
@@ -132,10 +133,20 @@ class DemoBoard:
                 log.error(f'Unrecognized force_demoboard setting: {self.user_config.force_demoboard} ?')
             
             
-            
+        
             
         self.pins = Globals.pins(mode=mode)
         
+        self.manual_project_clock = None
+        self.analog_current_source = None
+        if DemoboardDetect.PCB == DemoboardVersion.TTDBv3 \
+            and DemoboardDetect.PCB_Revision >= 3.3:
+            self.manual_project_clock = ManualClockPin(self.pins.manual_project_clock, self)
+            if mode == RPMode.ASIC_RP_CONTROL:
+                self.manual_project_clock.monitoring = True
+                
+            self.analog_current_source = AnalogCurrentSource(self.pins.analog_current_source, self)
+            self.analog_current_source.enabled = False 
         ports = ['uo_out', 'ui_in', 'uio_in', 'uio_out', 'uio_oe_pico']
         for p in ports:
             setattr(self, p, getattr(self.pins, p))
@@ -159,6 +170,8 @@ class DemoBoard:
         self._project_previously_loaded = {}
         self.load_default_project() 
         
+        
+            
         if DemoBoard._DemoBoardSingleton_Instance is None:
             DemoBoard._DemoBoardSingleton_Instance = self 
             # clear-out boot prefix
@@ -214,6 +227,12 @@ class DemoBoard:
                 log.warn(f'Was auto-clocking @ {autoClockFreq} but stopping for mode change')
                 
         self.pins.mode = setTo 
+        if self.manual_project_clock is not None:
+            if setTo == RPMode.ASIC_RP_CONTROL:
+                self.manual_project_clock.monitoring = True
+            else:
+                self.manual_project_clock.monitoring = False
+                
         
     @property 
     def mode_str(self):

@@ -5,7 +5,7 @@ Created on Nov 8, 2025
 @copyright: Copyright (C) 2025 Pat Deegan, https://psychogenic.com
 '''
 from ttboard.pins.gpio_map_base import GPIOMapBase
-
+from ttboard.pins.upython import Pin
 class GPIOMapTTDBv3Alpha(GPIOMapBase):
     RP_PROJCLK = 21
     PROJECT_nRST = 20
@@ -88,8 +88,10 @@ class GPIOMapTTDBv3Alpha(GPIOMapBase):
 
 
 class GPIOMapTTDBv3(GPIOMapBase):
-    RP_PROJCLK = 16
+    ANALOG_CURRENT_SOURCE = 12
     PROJECT_nRST = 14
+    MANUAL_PROJCLK = 15
+    RP_PROJCLK = 16
     CTRL_SEL_nRST = 1
     CTRL_SEL_INC = 2
     CTRL_SEL_ENA = 0
@@ -135,9 +137,16 @@ class GPIOMapTTDBv3(GPIOMapBase):
         return cls.RP_PROJCLK
     
     @classmethod 
+    def manual_project_clock(cls):
+        return cls.MANUAL_PROJCLK
+    
+    @classmethod 
     def project_reset(cls):
         return cls.PROJECT_nRST
     
+    @classmethod 
+    def analog_current_source(cls):
+        return cls.ANALOG_CURRENT_SOURCE
     
     @classmethod 
     def ctrl_increment(cls):
@@ -160,14 +169,25 @@ class GPIOMapTTDBv3(GPIOMapBase):
             'mng03',
             'cinc',
             'cena',
-            'ncrst'
+            'ncrst',
+            'analog_current_source'
         ]
+        
+        
+    @classmethod
+    def default_pull(cls, pin):
+        if pin in ["analog_current_source", "manual_project_clock"]:
+            return Pin.PULL_UP
+        
+        return Pin.PULL_DOWN
     @classmethod 
     def all(cls):
         retDict = cls.all_common()
 
         retDict.update({
             'nprojectrst': cls.PROJECT_nRST,
+            'manual_project_clock': cls.MANUAL_PROJCLK,
+            'analog_current_source': cls.ANALOG_CURRENT_SOURCE,
             'cinc': cls.CTRL_SEL_INC,
             'cena': cls.CTRL_SEL_ENA,
             'ncrst': cls.CTRL_SEL_nRST,
