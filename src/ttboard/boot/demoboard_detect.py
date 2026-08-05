@@ -87,13 +87,18 @@ class DemoboardDetect:
             # ...
     '''
     PCB = DemoboardVersion.UNKNOWN
+    PCB_Revision = DemoboardVersion.UNKNOWN
     CarrierPresent = None 
     CarrierVersion = None 
     
     
     @classmethod 
     def PCB_str(cls):
-        return DemoboardVersion.to_string(cls.PCB)
+        db_str = DemoboardVersion.to_string(cls.PCB)
+        if cls.PCB_Revision:
+            return f'{db_str} [{cls.PCB_Revision}]'
+        
+        return db_str
     
     @classmethod
     def probe_rp2350(cls):
@@ -147,8 +152,16 @@ class DemoboardDetect:
         cls.rp_all_inputs()
         if platform.IsRP2350:
             cls.PCB = DemoboardVersion.TTDBv3
+            cls.PCB_Revision = 3.2
             if cls.probe_rp2350():
                 result = True
+                
+            manual_prj_clk = GPIOMapTTDBv3.get_raw_pin(
+                        GPIOMapTTDBv3.manual_project_clock(), Pin.IN, Pin.PULL_UP)
+            if manual_prj_clk() == 0:
+                # pulled down 
+                cls.PCB = DemoboardVersion.TTDBv3
+                cls.PCB_Revision = 3.3
         else:
             cls.PCB = DemoboardVersion.UNKNOWN
         

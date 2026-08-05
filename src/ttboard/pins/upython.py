@@ -6,8 +6,8 @@ Created on Jan 23, 2024
 '''
 from ttboard.util.platform import IsRP2
 if IsRP2:
-    from machine import Pin
+    from machine import Pin, Timer, ADC
 else:
     # give us some fake Pin to play with
-    from ttboard.pins.desktop_pin import Pin 
+    from ttboard.pins.desktop_pin import Pin, Timer, ADC
     

@@ -48,7 +48,7 @@ class GPIOMapBase:
         return Pin.PULL_DOWN
     
     @classmethod 
-    def get_raw_pin(cls, pin:str, direction:int) -> Pin:
+    def get_raw_pin(cls, pin:str, direction:int, pull:int=None) -> Pin:
         
         pin_ionum = None
         if isinstance(pin, int):
@@ -58,7 +58,9 @@ class GPIOMapBase:
             if pin not in pin_name_to_io:
                 return None
             pin_ionum = pin_name_to_io[pin]
-            
+        
+        if pull is not None:
+            return Pin(pin_ionum, direction, pull=pull)
         return Pin(pin_ionum, direction)
     
     

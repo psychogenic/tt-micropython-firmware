@@ -46,3 +46,29 @@ class Pin:
             self.val = value
             return
         return self.val
+    
+class ADC:
+    CORE_TEMP = -1
+    def __init__(self, pin):
+        self._pin = pin 
+        
+    def read_u16(self):
+        return 0xdead
+    
+class Timer:
+    def __init__(self):
+        self._freq = 0
+        self._period = 0
+        self._mode = 0
+        self.callback = None 
+    
+    def init(self, period:int, mode:int, callback):
+        self._period = period 
+        self._mode = mode 
+        self.callback = callback 
+        
+    def deinit(self):
+        self.callback = None
+        
+    init(period=self.timerperiodms, mode=Timer.PERIODIC, 
+                             callback=self._timer_callback)
