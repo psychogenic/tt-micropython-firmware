@@ -69,6 +69,3 @@ class Timer:
         
     def deinit(self):
         self.callback = None
-        
-    init(period=self.timerperiodms, mode=Timer.PERIODIC, 
-                             callback=self._timer_callback)
