@@ -22,6 +22,7 @@ import ttboard.util.platform as platform
 from ttboard.boot.demoboard_detect import DemoboardDetect, DemoboardVersion, DemoboardCarrier
 from ttboard.pins.manual_clock import ManualClockPin
 from ttboard.pins.analog_current_source import AnalogCurrentSource
+from ttboard.pins.adc import ADCPinList
 import ttboard.log as logging
 log = logging.getLogger(__name__)
 
@@ -139,6 +140,9 @@ class DemoBoard:
         
         self.manual_project_clock = None
         self.analog_current_source = None
+        
+        self.adc = ADCPinList(self)
+        
         if DemoboardDetect.PCB == DemoboardVersion.TTDBv3 \
             and DemoboardDetect.PCB_Revision >= 3.3:
             self.manual_project_clock = ManualClockPin(self.pins.manual_project_clock, self)

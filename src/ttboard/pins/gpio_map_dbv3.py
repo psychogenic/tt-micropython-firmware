@@ -128,6 +128,13 @@ class GPIOMapTTDBv3(GPIOMapBase):
     MNG05 = 8
     MNG06 = 9
     MNG07 = 10
+    ADC1 = 41
+    ADC2 = 42
+    ADC3 = 43
+    ADC4 = 44
+    ADC5 = 45
+    
+    
 
     # Enable a workaround for a PCB error in TT07 carrier board, which swapped the ctrl_sel_inc and ctrl_sel_nrst lines:
     tt07_cb_fix = False
@@ -203,6 +210,12 @@ class GPIOMapTTDBv3(GPIOMapBase):
             'mng05': cls.MNG05,
             'mng06': cls.MNG06,
             'mng07': cls.MNG07,
+            'adc1': cls.ADC1,
+            'adc2': cls.ADC2,
+            'adc3': cls.ADC3,
+            'adc4': cls.ADC4,
+            'adc5': cls.ADC5,
+            
             'rp_led': cls.RP_LED
             
         })

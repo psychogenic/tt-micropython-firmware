@@ -157,7 +157,7 @@ class DemoboardDetect:
                 result = True
                 
             manual_prj_clk = GPIOMapTTDBv3.get_raw_pin(
-                        GPIOMapTTDBv3.manual_project_clock(), Pin.IN)
+                        GPIOMapTTDBv3.manual_project_clock(), Pin.IN, Pin.PULL_UP)
             if manual_prj_clk() == 0:
                 # pulled down 
                 cls.PCB = DemoboardVersion.TTDBv3

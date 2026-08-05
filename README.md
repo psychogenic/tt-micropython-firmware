@@ -238,6 +238,12 @@ False
 ```
 
 
+As of demoboards v3.3, manual clocking is no longer part of the actual clock line circuit.  Instead, it is going to an RP2 GPIO which is by default monitored and, on being triggered, performs a `tt.clock_project_once()`.  This uses a Timer to check periodically if the button was pressed.
+
+You may disable this timer and behaviour by setting `tt.manual_project_clock.monitoring = False` and check the state of the input yourself using `tt.manual_project_clock()`.
+
+
+
 ## REPL and Scripting
 
 After install, scripts or the REPL may be used.  With micropython, the contents of main.py are executed on boot.
@@ -603,6 +609,69 @@ tt.pins.uio_in3.pwm(FREQUENCY, [DUTY_16])
 ```
 
 If FREQUENCY is 0, PWM will stop and it will revert to simple output.  If duty cycle is not specified, it will be 50% (0xffff/2).
+
+
+## Analog Support
+
+Analog projects are enabled just like any other project, but have their (analog) I/O routed to the ANALOG header at the top of the demoboard PCB.
+
+To assist in using these projects, two utilities are now part of the SDK.
+
+### Current Source
+
+The current source on newer version of the demoboard, next to the ANALOG header, provides up to (around) 250 uA. It is used through the `tt.analog_current_source` attribute.
+
+This attribute has two controls:
+  * enabled (boolean): sets whether the current source is active
+  * level (0 - 0xffff): amount of current sourced, ~proportional to this level
+
+```
+>>> tt.analog_current_source.
+<AnalogCurrentSource disabled 0>
+>>>
+>>> tt.analog_current_source.level = 1234
+>>>
+>>> tt.analog_current_source
+<AnalogCurrentSource disabled 1234>
+>>>
+>>> tt.analog_current_source.enabled = True
+>>>
+>>> tt.analog_current_source
+<AnalogCurrentSource enabled 1234>
+```
+
+The actual current delivered should be measured and tuned according to needs, and it's likely to top out before the full 65535 level is reached.
+
+### ADCs
+
+The ADCs broken out onto their header are now available as an array, as `tt.adc`,(with indices 1-5, matching the PCB indications).
+Accessing any of the elements of the array enables the ADC, which then provides two attributes: `value` and `volts`.
+
+```
+>>> tt.adc[1]
+<ADC <ADC channel=1> 16>
+>>>
+>>> tt.adc[1].volts
+0.0
+>>> tt.adc[1].value
+80
+>>>
+>>> tt.adc[1].volts
+3.2782466
+>>>
+>>> tt.adc[1].value
+65231
+```
+
+The `CORE_TEMP` ADC is available at index 0 or, to just read a temperature value, use `core_temp`
+
+```
+>>> tt.adc[0].value
+13747
+>>>
+>>> tt.adc.core_temp
+35.470992
+```
 
 
 ## FPGA Breakout

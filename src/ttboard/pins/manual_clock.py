@@ -5,8 +5,7 @@ Created on Aug 5, 2026
 @copyright: Copyright (C) 2026 Pat Deegan, https://psychogenic.com
 '''
 
-from ttboard.pins.upython import Pin
-from machine import Timer
+from ttboard.pins.upython import Pin, Timer
 
 import ttboard.log as logging
 log = logging.getLogger(__name__)
