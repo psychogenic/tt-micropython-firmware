@@ -155,12 +155,13 @@ class DemoboardDetect:
             cls.PCB_Revision = 3.2
             if cls.probe_rp2350():
                 result = True
-                manual_prj_clk = GPIOMapTTDBv3.get_raw_pin(
-                            GPIOMapTTDBv3.manual_project_clock(), Pin.IN)
-                if manual_prj_clk() == 0:
-                    # pulled down 
-                    cls.PCB = DemoboardVersion.TTDBv3
-                    cls.PCB_Revision = 3.3
+                
+            manual_prj_clk = GPIOMapTTDBv3.get_raw_pin(
+                        GPIOMapTTDBv3.manual_project_clock(), Pin.IN)
+            if manual_prj_clk() == 0:
+                # pulled down 
+                cls.PCB = DemoboardVersion.TTDBv3
+                cls.PCB_Revision = 3.3
         else:
             cls.PCB = DemoboardVersion.UNKNOWN
         

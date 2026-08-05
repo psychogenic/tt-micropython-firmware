@@ -34,7 +34,7 @@ class AnalogCurrentSource:
         self._enabled = False 
         self._level = 10
         self.frequencyHz = 1_000_000
-        self.enable = False
+        self.enabled = False
         
     @property 
     def enabled(self):
