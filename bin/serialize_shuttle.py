@@ -1,7 +1,10 @@
 import sys
 import os
+import logging 
 from ttboard.project_mux import DesignIndex
 BinFileSuffix = 'bin'
+
+logging.basicConfig(level=logging.INFO)
 
 def main():
     if len(sys.argv) < 2:

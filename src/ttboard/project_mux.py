@@ -18,17 +18,58 @@ import os
 import ttboard.util.time as time
 from ttboard.pins.pins import Pins
 from ttboard.boot.rom import ChipROM
+from ttboard.pins.upython import Pin
 from ttboard.boot.shuttle_properties import HardcodedShuttle
 import ttboard.log as logging
-from ttboard.project_design import Serializable, DangerLevel, Design, DesignStub
+from ttboard.project_design import Serializable, DangerLevel, Design, DesignStub, DesignType
 log = logging.getLogger(__name__)
 
 StrictMemorySaving = False
 '''
 Fetched with
-https://index.tinytapeout.com/tt0X.json?fields=address,clock_hz,title,dange_field
+
+https://index.tinytapeout.com/$chip.json?fields=type,address,subtile_addr,subtile_addr_bits,subtile_group,clock_hz,title,danger_level
 
 '''
+
+class DesignAddress:
+    '''
+        DesignAddress centralizes the processing of the project 
+        type and potential subtile address/bits
+        If all went well, valid will be True.  Otherwise False, with logged message indicating why.
+    '''
+    def __init__(self, name:dict, project:dict):
+        self.project_address = int(project['address'])
+        self.name = name
+        self.type = DesignType.PROJECT 
+        self.subtile_address = 0
+        self.subtile_bits = 0
+        self.valid = False
+        if 'type' not in project:
+            self.valid = True 
+            return 
+    
+        self.type = DesignType.from_str(project['type'])
+        if self.type is None:
+            log.warning(f'Unknown design type: {project["type"]} -- skip')
+            return 
+        
+        if self.type == DesignType.GROUP:
+            log.info(f'Design {self.project_address} {self.name} is a group, ignoring')
+            return 
+        
+        if self.type == DesignType.SUBTILE:
+            if 'subtile_addr_bits' in project and 'subtile_addr' in project:
+                self.subtile_address = project['subtile_addr']
+                self.subtile_bits = project['subtile_addr_bits']
+                log.debug(f'Design {self.project_address} {self.name} is a subtile @ {self.subtile_address}.')
+            else:
+                log.warning(f"Don't have subtile addr and bits for SUBTILE {self.project_address} {self.name}? skip")
+                return 
+            
+        self.valid = True 
+                            
+        
    
 class DesignIndex(Serializable):
     SerializedBinSuffix = 'bin'
@@ -78,10 +119,14 @@ class DesignIndex(Serializable):
                 index = json.load(fh)
                 self._num_projects = 0
                 for project in index['projects']:
-                    project_address = int(project['address'])
-                    attrib_name = self.clean_project_name(project)
-                    des = Design(self._project_mux, attrib_name, project_address, project)
-                    setattr(self, attrib_name, des)
+                    
+                    daddr = DesignAddress(self.clean_project_name(project), project)
+                    if not daddr.valid:
+                        continue
+                    
+                    des = Design(self._project_mux, daddr.name, daddr.project_address, daddr.type, 
+                                 daddr.subtile_address, daddr.subtile_bits, project)
+                    setattr(self, daddr.name, des)
                     self._num_projects += 1
                 index = None
         except OSError:
@@ -199,7 +244,14 @@ class DesignIndex(Serializable):
                             pname = self._wokwi_name_cleanup(project['macro'], project)
                         else:
                             pname = project_name
-                        des = Design(self._project_mux, pname, project["address"], project)
+                        
+                        
+                        daddr = DesignAddress(pname, project)
+                        if not daddr.valid:
+                            continue
+                        
+                        des = Design(self._project_mux, daddr.name, daddr.project_address, daddr.type, 
+                                 daddr.subtile_address, daddr.subtile_bits, project)
                         if des.danger_level > max_allowable_danger:
                             log.error(f'Design {des.name} danger exceeds max allowed {DangerLevel.level_to_str(max_allowable_danger)}')
                             continue
@@ -232,14 +284,29 @@ class DesignIndex(Serializable):
     def project_index(self, project_name:str) -> int:
         if self.is_available(project_name):
             # return self._available_projects[project_name]
-            return getattr(self, project_name).count
+            proj = getattr(self, project_name)
+            return f'{proj.count}-{proj.subtile_address}'
+        
+        if type(project_name) == str and re.match(r'^\d+-\d+', project_name):
+            return project_name
         
         return None   
     
     
     def project_name(self, from_address:int) -> str:
         des_attribs = self._get_design_attribs()
-        found = list(filter(lambda x: x.count == from_address, des_attribs))
+        addr = from_address
+        subtile_addr = 0
+        if type(from_address) == str:
+            m = re.match(r'^(\d+)(-(\d+))?', from_address)
+            if m:
+                addr = int(m[1])
+            if m[3]:
+                subtile_addr = int(m[3])
+                
+        
+        
+        found = list(filter(lambda x: x.count == addr and x.subtile_address == subtile_addr, des_attribs))
         if len(found):
             return found[0].name
         return None
@@ -249,18 +316,23 @@ class DesignIndex(Serializable):
         self.load_all()
         bts = bytearray()
         processed = dict()
+        
         for ades in self.all:
-            if ades.project_index in processed:
+            fulladdy = f'{ades.project_index}-{ades.subtile_address}'
+            if fulladdy in processed:
+                log.warning(f"Design {fulladdy} already processed?")
                 continue 
-            processed[ades.project_index] = True
-            pname = self.project_name(ades.project_index)
+            processed[fulladdy] = True
+            pname = self.project_name(fulladdy)
             ades.name = pname
+            log.info(f"Serializing '{pname}' ({fulladdy})")
             try:
                 bts += ades.serialize()
             except Exception as e:
                 log.error(str(e))
                 log.error(f'Problem serializing {str(ades)}')
-            
+        
+        log.warning(f"Serialized {len(processed)} designs")
         return bts
 
     def from_bin_file(self, fpath:str):
@@ -269,6 +341,26 @@ class DesignIndex(Serializable):
         return self._num_projects
     
     def deserialize_design_by_address(self, fpath:str, project_address:int) -> Design:
+        subtile_addr = 0
+        paddr = project_address
+        log.debug(f"Deserialize by addy: {project_address}")
+        if type(project_address) == str:
+            parts = project_address.split('-')
+            try:
+                paddr = int(parts[0])
+            except ValueError:
+                log.error("Use 'ADDRESS' or 'ADDRESS-SUBTILEADDRESS'")
+                return None 
+            
+            if len(parts) > 1:
+                try:
+                    subtile_addr = int(parts[1])
+                    log.debug(f'Looking for subtile @ {subtile_addr}')
+                except ValueError:
+                    log.error("Use 'ADDRESS-SUBTILEADDRESS'")
+                    return None 
+                
+            
         with open(fpath, 'rb') as bytestream:
             version = self.bin_header_valid(bytestream)
             if not version:
@@ -281,13 +373,21 @@ class DesignIndex(Serializable):
                 except ValueError:
                     # empty 
                     return None
-                if addr == project_address:
+                if addr != paddr:
+                    # skip it
+                    bytestream.seek(bytestream.tell() + size)
+                else:
                     bytestream.seek(bytestream.tell() - addrAndSizeBytes)
                     des = Design(self._project_mux)
                     des.deserialize(bytestream)
-                    bytestream.close()
-                    return des
-                bytestream.seek(bytestream.tell() + size)
+                    if subtile_addr == des.subtile_address:
+                        log.debug(f"Got design {des.name}")
+                        bytestream.close()
+                        return des
+                    
+                    # we've advanced by one record, just move on
+                    log.debug(f"Got design {des.name} but wrong subtile addy {des.subtile_address}, skip")
+                    
     
     def deserialize_find_names(self, fpath:str, partial_name:str) -> list:
         with open(fpath, 'rb') as bytestream:
@@ -315,6 +415,8 @@ class DesignIndex(Serializable):
                     bytestream.seek(payload_point + size)
     
     def deserialize_design_by_name(self, fpath:str, project_name:str) -> Design:
+        
+        log.debug(f"Deserialize by name: {project_name}")
         with open(fpath, 'rb') as bytestream:
             
             version = self.bin_header_valid(bytestream)
@@ -359,7 +461,7 @@ class DesignIndex(Serializable):
             if not StrictMemorySaving:
                 nm = aDesign.name 
                 if not hasattr(self, nm):
-                    setattr(self, nm, DesignStub(self, aDesign.count))
+                    setattr(self, nm, DesignStub(self, aDesign.count, aDesign.type, aDesign.subtile_address, aDesign.subtile_bits))
             
     def __len__(self):
         return self._num_projects
@@ -410,6 +512,7 @@ class ProjectMux:
         
     def disable(self):
         log.info(f'Disable (selecting project 0)')
+        self.p.safe_bidir() # reset bidirectionals to safe mode
         self.reset_and_clock_mux(0)
             
         self.p.cena(0)
@@ -426,6 +529,26 @@ class ProjectMux:
                 log.error(f"Danger level is '{design.danger_level_str}'.")
                 log.warn(f"call with force=True to enable")
                 return False
+        # disable the current project, as we might twiddle
+        # the bidirs
+        self.disable() 
+            
+        if design.type == DesignType.GROUP:
+            log.error("Can't enable a 'GROUP'")
+            return 
+        
+        if design.type == DesignType.SUBTILE:
+            if not design.subtile_bits:
+                log.error("Have a subtile with no subtile_bits? abort")
+                return False 
+            
+            for i in range(design.subtile_bits):
+                uio_pin = getattr(self.pins, f'uio{i}')
+                uio_pin.mode = Pin.OUT 
+            
+            log.info(f'Setting subtile address to {design.subtile_address}')
+            self.pins.uio_in.value = design.subtile_address
+            
         self.reset_and_clock_mux(design.count)
         self.enabled = design
         if self.design_enabled_callback is not None:
@@ -435,9 +558,9 @@ class ProjectMux:
             
     
     def reset_and_clock_mux(self, count:int):
-        self.p.safe_bidir() # reset bidirectionals to safe mode
-        
         self.reset()
+        if count:
+            log.info(f"Clock in design {count}")
         # send the number of pulses required
         for _c in range(count):
             self.p.cinc(1)

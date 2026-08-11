@@ -89,7 +89,7 @@ jobs:
       - name: Get shuttle indices
         working-directory: sdk_repo
         run: |
-             for chip in $TT_RUNS_SUPPORTED; do wget -O fsroot/shuttles/$chip.json "https://index.tinytapeout.com/$chip.json?fields=repo,address,commit,clock_hz,title,danger_level"; done
+             for chip in $TT_RUNS_SUPPORTED; do wget -O fsroot/shuttles/$chip.json "https://index.tinytapeout.com/$chip.json?fields=type,address,subtile_addr,subtile_addr_bits,subtile_group,clock_hz,title,danger_level"; done
       - name: Prepare shuttle bin files
         working-directory: sdk_repo
         run: |
