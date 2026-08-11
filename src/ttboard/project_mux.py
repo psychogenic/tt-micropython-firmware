@@ -62,7 +62,7 @@ class DesignAddress:
             if 'subtile_addr_bits' in project and 'subtile_addr' in project:
                 self.subtile_address = project['subtile_addr']
                 self.subtile_bits = project['subtile_addr_bits']
-                log.info(f'Design {self.project_address} {self.name} is a subtile @ {self.subtile_address}.')
+                log.debug(f'Design {self.project_address} {self.name} is a subtile @ {self.subtile_address}.')
             else:
                 log.warning(f"Don't have subtile addr and bits for SUBTILE {self.project_address} {self.name}? skip")
                 return 
@@ -287,6 +287,9 @@ class DesignIndex(Serializable):
             proj = getattr(self, project_name)
             return f'{proj.count}-{proj.subtile_address}'
         
+        if type(project_name) == str and re.match(r'^\d+-\d+', project_name):
+            return project_name
+        
         return None   
     
     
@@ -295,10 +298,11 @@ class DesignIndex(Serializable):
         addr = from_address
         subtile_addr = 0
         if type(from_address) == str:
-            parts = from_address.split('-')
-            addr = int(parts[0])
-            if len(parts) > 1:
-                subtile_addr = int(parts[1])
+            m = re.match(r'^(\d+)(-(\d+))?', from_address)
+            if m:
+                addr = int(m[1])
+            if m[3]:
+                subtile_addr = int(m[3])
                 
         
         
@@ -315,6 +319,7 @@ class DesignIndex(Serializable):
         for ades in self.all:
             fulladdy = f'{ades.project_index}-{ades.subtile_address}'
             if fulladdy in processed:
+                log.warning(f"Design {fulladdy} already processed?")
                 continue 
             processed[fulladdy] = True
             pname = self.project_name(fulladdy)
