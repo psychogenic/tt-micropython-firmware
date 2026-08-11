@@ -261,49 +261,13 @@ class DemoBoard:
             return self._clock_pio.freq
         
         return self._clock_pwm.freq()
-    @property 
-    def clk(self):
-        '''
-            Quick access to project clock pin.
-            
-            clk(1) # write
-            clk.on() # same
-            clk.toggle()
-            
-            all the usual pin stuff.
-            
-            @note: if you've enabled PWM on the clock pin, that's what is returned
-            rather than the pin itself.  If you really need the pin while 
-            PWM is running, you can get it from pins.rp_projclk
-            
-            
-            @see: clock_project_once(), clock_project_PWM() and clock_project_stop()
-        '''
-        if self.is_auto_clocking:
-            return self._clock_pwm
-        return self.pins.rp_projclk
     
-    
-    
-    @property 
-    def rst_n(self):
-        '''
-            Quick access to project reset pin.
-            
-            rst_n(1) # write
-            rst_n.on() # same
-            rst_n.toggle()
-            
-            all the usual pin stuff.
-            
-            @see: reset_project()
-        '''
-        return self.pins.nprojectrst
     
     
     def reset_project(self, putInReset:bool):
         '''
-            Utility to mask the logic inversion and 
+            Utility to mask the logic inversion, 
+            handle the pin direction and generally
             make things clear.
             
             reset_project(True) # project is in reset
@@ -325,6 +289,30 @@ class DemoBoard:
                 log.debug('Taking out of reset')
                 self.rst_n(1) 
             self.rst_n.mode = Pins.IN
+    
+    @property 
+    def rst_n(self):
+        '''
+            Quick access to project reset pin.  
+            NOTE: this pin, like many others, usually spends its 
+            time as as INPUT (to support the user switch circuit). 
+            Either use reset_project() to handle this, or 
+            do a 
+                tt.rst_n.mode = Pins.OUT
+            if the pin isn't toggling.
+            
+            
+            rst_n(1) # write
+            rst_n.on() # same
+            rst_n.toggle()
+            
+            all the usual pin stuff.
+            
+            @see: reset_project()
+        '''
+        return self.pins.nprojectrst
+    
+    
             
     def clock_project_once(self, msDelay:int=0):
         '''
@@ -413,6 +401,29 @@ class DemoBoard:
             self.clock_project_PWM(0)
             self.clk(0) # make certain we are low
         self.pins.project_clk_driven_by_RP2(False)
+        
+        
+    @property 
+    def clk(self):
+        '''
+            Quick access to project clock pin.
+            
+            clk(1) # write
+            clk.on() # same
+            clk.toggle()
+            
+            all the usual pin stuff.
+            
+            @note: if you've enabled PWM on the clock pin, that's what is returned
+            rather than the pin itself.  If you really need the pin while 
+            PWM is running, you can get it from pins.rp_projclk
+            
+            
+            @see: clock_project_once(), clock_project_PWM() and clock_project_stop()
+        '''
+        if self.is_auto_clocking:
+            return self._clock_pwm
+        return self.pins.rp_projclk
         
     def reset_system_clock(self):
         '''
