@@ -205,7 +205,7 @@ True
 
 ## Project clocking and reset
 
-To put a project in or out of reset, use `project_reset(BOOL)`
+To put a project in or out of reset, use `reset_project(BOOL)`
 
 ```
 # hold in reset
