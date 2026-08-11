@@ -343,6 +343,7 @@ class DesignIndex(Serializable):
     def deserialize_design_by_address(self, fpath:str, project_address:int) -> Design:
         subtile_addr = 0
         paddr = project_address
+        log.debug(f"Deserialize by addy: {project_address}")
         if type(project_address) == str:
             parts = project_address.split('-')
             try:
@@ -354,6 +355,7 @@ class DesignIndex(Serializable):
             if len(parts) > 1:
                 try:
                     subtile_addr = int(parts[1])
+                    log.debug(f'Looking for subtile @ {subtile_addr}')
                 except ValueError:
                     log.error("Use 'ADDRESS-SUBTILEADDRESS'")
                     return None 
@@ -371,17 +373,21 @@ class DesignIndex(Serializable):
                 except ValueError:
                     # empty 
                     return None
-                if addr == paddr:
+                if addr != paddr:
+                    # skip it
+                    bytestream.seek(bytestream.tell() + size)
+                else:
                     bytestream.seek(bytestream.tell() - addrAndSizeBytes)
                     des = Design(self._project_mux)
                     des.deserialize(bytestream)
-                    bytestream.close()
                     if subtile_addr == des.subtile_address:
+                        log.debug(f"Got design {des.name}")
+                        bytestream.close()
                         return des
-                    # we've advanced by one record, just move on
-                    continue
                     
-                bytestream.seek(bytestream.tell() + size)
+                    # we've advanced by one record, just move on
+                    log.debug(f"Got design {des.name} but wrong subtile addy {des.subtile_address}, skip")
+                    
     
     def deserialize_find_names(self, fpath:str, partial_name:str) -> list:
         with open(fpath, 'rb') as bytestream:
@@ -409,6 +415,8 @@ class DesignIndex(Serializable):
                     bytestream.seek(payload_point + size)
     
     def deserialize_design_by_name(self, fpath:str, project_name:str) -> Design:
+        
+        log.debug(f"Deserialize by name: {project_name}")
         with open(fpath, 'rb') as bytestream:
             
             version = self.bin_header_valid(bytestream)
@@ -504,6 +512,7 @@ class ProjectMux:
         
     def disable(self):
         log.info(f'Disable (selecting project 0)')
+        self.p.safe_bidir() # reset bidirectionals to safe mode
         self.reset_and_clock_mux(0)
             
         self.p.cena(0)
@@ -523,12 +532,6 @@ class ProjectMux:
         # disable the current project, as we might twiddle
         # the bidirs
         self.disable() 
-        
-        # ensure all bidir pins are inputs
-        uio_pins = []
-        for i in range(8):
-            uio_pins.append(getattr(self.pins, f'uio{i}'))
-            uio_pins[i].mode = Pin.IN 
             
         if design.type == DesignType.GROUP:
             log.error("Can't enable a 'GROUP'")
@@ -540,7 +543,8 @@ class ProjectMux:
                 return False 
             
             for i in range(design.subtile_bits):
-                uio_pins[i].mode = Pin.OUT 
+                uio_pin = getattr(self.pins, f'uio{i}')
+                uio_pin.mode = Pin.OUT 
             
             log.info(f'Setting subtile address to {design.subtile_address}')
             self.pins.uio_in.value = design.subtile_address
@@ -554,9 +558,9 @@ class ProjectMux:
             
     
     def reset_and_clock_mux(self, count:int):
-        self.p.safe_bidir() # reset bidirectionals to safe mode
-        
         self.reset()
+        if count:
+            log.info(f"Clock in design {count}")
         # send the number of pulses required
         for _c in range(count):
             self.p.cinc(1)

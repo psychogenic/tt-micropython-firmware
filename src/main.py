@@ -38,6 +38,11 @@ logging.basicConfig(level=logging.DEBUG, filename='boot.log')
 
 
 import micropython
+# I'm tired of importing these manually
+import os 
+from ttboard.pins.upython import Pin
+
+# need these
 from ttboard.boot.demoboard_detect import DemoboardDetect
 from ttboard.demoboard import DemoBoard
 import ttboard.util.colors as colors
@@ -129,3 +134,6 @@ def run_testbench_factorytest():
         print(f'{len(err_msgs)}/{len(runner.tests_to_run)} test failures:\n\t{err_str}')
         print()
     return test
+
+
+

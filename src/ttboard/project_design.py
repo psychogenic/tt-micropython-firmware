@@ -76,7 +76,7 @@ class DangerLevel:
         return strs[level]
     
 class Serializable:
-    SerializerVersion = 1
+    SerializerVersion = 2
     BytesForStringLen = 1
     StringEncoding = 'ascii'
     ByteOrder = 'big'
@@ -297,6 +297,7 @@ class Design(Serializable):
         self.subtile_address = self.deserialize_int(bytestream, 1)
         self.danger_level = self.deserialize_int(bytestream, 1)
         self.clock_hz = self.deserialize_int(bytestream, self.SerializeClockBytes)
+        log.debug(f'deserialize(): {self.name} {self.count}-{self.subtile_address}')
         
     def __str__(self):
         if self.type != DesignType.PROJECT:
@@ -366,5 +367,5 @@ class DesignStub:
             subaddr = ''
             if self.type == DesignType.SUBTILE:
                 subaddr = f':{self.subtile_address}'
-            return f'<Design {self.project_index}{subaddr} ({tp} uninit)>'
-        return f'<Design {self.project_index} (uninit)>'
+            return f'<Design {self.count}{subaddr} ({tp} uninit)>'
+        return f'<Design {self.count} (uninit)>'
