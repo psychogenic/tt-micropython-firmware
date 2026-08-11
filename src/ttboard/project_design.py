@@ -7,6 +7,43 @@ Created on Dec 4, 2024
 import ttboard.log as logging
 log = logging.getLogger(__name__)
 
+class DesignType:
+    '''
+        Design Types
+        "PROJECT" is standard tile
+        "GROUP" groups sub-tiles together
+        "SUBTILE" has a sub-address we need to select using bidir pins, in a tile
+    '''
+    PROJECT = 0
+    GROUP = 1
+    SUBTILE = 2
+    
+    @classmethod 
+    def type_str(cls, tp:int):
+        tpMap = {
+            DesignType.PROJECT: 'project',
+            DesignType.GROUP: 'group',
+            DesignType.SUBTILE: 'subtile'
+        }
+            
+        if tp in tpMap:
+            return tpMap[tp]
+        
+        return ''
+    
+    @classmethod 
+    def from_str(cls, dtypestr:str):
+        tpMap = {
+            'project': DesignType.PROJECT,
+            'group': DesignType.GROUP,
+            'subtile': DesignType.SUBTILE,
+        }
+        
+        if dtypestr in tpMap:
+            return tpMap[dtypestr]
+        
+        return None
+    
 class DangerLevel:
     SAFE=0
     UNKNOWN=1
@@ -172,11 +209,18 @@ class Design(Serializable):
     SerializeClockBytes = 4
     SerializePayloadSizeBytes = 1
     SerializeAddressBytes = 2
-    def __init__(self, projectMux, projname:str='NOTSET', projindex:int=0, info:dict=None):
+    def __init__(self, projectMux, projname:str='NOTSET', projindex:int=0, 
+                 projtype:int=DesignType.PROJECT, 
+                 subtile_address:int=0, 
+                 subtile_bits:int=0, info:dict=None):
         super().__init__()
         self.mux = projectMux
         self.count = int(projindex)
+        self.type = projtype
         self.name = projname
+        
+        self.subtile_address = subtile_address
+        self.subtile_bits = subtile_bits
         
         self.danger_level = DangerLevel.HIGH
         self.macro = projname 
@@ -225,9 +269,11 @@ class Design(Serializable):
     def serialize(self):
         payload_data = [
                 self.name,
+                self.type,
+                self.subtile_bits,
+                self.subtile_address,
                 self.danger_level,
-                [self.clock_hz, self.SerializeClockBytes]
-                
+                [self.clock_hz, self.SerializeClockBytes],
             ]
         
         payload_bytes = self.serialize_list(payload_data)
@@ -240,15 +286,24 @@ class Design(Serializable):
         return all_data
         
     def deserialize(self, bytestream):
-        
         addr, _size = self.get_address_and_size_from(bytestream)
         self.count = addr
         self.name = self.deserialize_string(bytestream)
         self.macro = self.name
         self.danger_level = self.deserialize_int(bytestream, 1)
+        self.type = self.deserialize_int(bytestream, 1)
+        self.subtile_bits = self.deserialize_int(bytestream, 1)
+        self.subtile_address = self.deserialize_int(bytestream, 1)
         self.clock_hz = self.deserialize_int(bytestream, self.SerializeClockBytes)
         
     def __str__(self):
+        if self.type != DesignType.PROJECT:
+            tp = DesignType.type_str(self.type)
+            subaddr = ''
+            if self.type == DesignType.SUBTILE:
+                subaddr = f':{self.subtile_address}'
+            return f'{self.name} [{tp}] ({self.count}{subaddr}) @ {self.repo}'
+        
         return f'{self.name} ({self.count}) @ {self.repo}'
     
     def __repr__(self):
@@ -257,7 +312,14 @@ class Design(Serializable):
         else:
             dangermsg = f' danger={self.danger_level_str}'
         
-        return f'<Design {self.count}: {self.name}{dangermsg}>'
+        if self.type != DesignType.PROJECT:
+            tp = DesignType.type_str(self.type)
+            subaddr = ''
+            if self.type == DesignType.SUBTILE:
+                subaddr = f':{self.subtile_address}'
+            return f'<Design {self.count}{subaddr} ({tp} {self.name}{dangermsg})>'
+        
+        return f'<Design {self.count} ({self.name}{dangermsg})>'
         
 
 class DesignStub:
@@ -267,9 +329,14 @@ class DesignStub:
         Has a side effect of replacing itself as an attribute
         in the design index so this only happens once.
     '''
-    def __init__(self, design_index, address:int):
+    def __init__(self, design_index, address:int, dtype:int=DesignType.PROJECT, subtile_addr:int=0, subtile_addrbits:int=0):
         self.design_index = design_index
         self.count = address
+        
+        self.type = dtype
+        self.subtile_bits = subtile_addrbits
+        self.subtile_address = subtile_addr
+        
         # self.name = projname 
         self._des = None
     
@@ -291,4 +358,10 @@ class DesignStub:
         return getattr(des, name)
     
     def __repr__(self):
+        if self.type != DesignType.PROJECT:
+            tp = DesignType.type_str(self.type)
+            subaddr = ''
+            if self.type == DesignType.SUBTILE:
+                subaddr = f':{self.subtile_address}'
+            return f'<Design {self.project_index}{subaddr} ({tp} uninit)>'
         return f'<Design {self.project_index} (uninit)>'

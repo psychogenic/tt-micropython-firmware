@@ -18,17 +18,57 @@ import os
 import ttboard.util.time as time
 from ttboard.pins.pins import Pins
 from ttboard.boot.rom import ChipROM
+from ttboard.pins.upython import Pin
 from ttboard.boot.shuttle_properties import HardcodedShuttle
 import ttboard.log as logging
-from ttboard.project_design import Serializable, DangerLevel, Design, DesignStub
+from ttboard.project_design import Serializable, DangerLevel, Design, DesignStub, DesignType
 log = logging.getLogger(__name__)
 
 StrictMemorySaving = False
 '''
 Fetched with
-https://index.tinytapeout.com/tt0X.json?fields=address,clock_hz,title,dange_field
+
+https://index.tinytapeout.com/$chip.json?fields=type,address,subtile_addr,subtile_addr_bits,subtile_group,clock_hz,title,danger_level
 
 '''
+
+class DesignAddress:
+    '''
+        DesignAddress centralizes the processing of the project 
+        type and potential subtile address/bits
+        If all went well, valid will be True.  Otherwise False, with logged message indicating why.
+    '''
+    def __init__(self, name:dict, project:dict):
+        self.project_address = int(project['address'])
+        self.name = name
+        self.type = DesignType.PROJECT 
+        self.subtile_address = 0
+        self.subtile_bits = 0
+        self.valid = False
+        if 'type' not in project:
+            self.valid = True 
+            return 
+    
+        self.type = DesignType.from_str(project['type'])
+        if self.type is None:
+            log.warning(f'Unknown design type: {project["type"]} -- skip')
+            return 
+        
+        if self.type == DesignType.GROUP:
+            log.info(f'Design {self.project_address} {self.name} is a group, ignoring')
+            return 
+        
+        if self.type == DesignType.SUBTILE:
+            if 'subtile_addr_bits' in project and 'subtile_addr' in project:
+                self.subtile_address = project['subtile_addr']
+                self.subtile_bits = project['subtile_addr_bits']
+            else:
+                log.warning(f"Don't have subtile addr and bits for SUBTILE {self.project_address} {self.name}? skip")
+                return 
+            
+        self.valid = True 
+                            
+        
    
 class DesignIndex(Serializable):
     SerializedBinSuffix = 'bin'
@@ -78,10 +118,14 @@ class DesignIndex(Serializable):
                 index = json.load(fh)
                 self._num_projects = 0
                 for project in index['projects']:
-                    project_address = int(project['address'])
-                    attrib_name = self.clean_project_name(project)
-                    des = Design(self._project_mux, attrib_name, project_address, project)
-                    setattr(self, attrib_name, des)
+                    
+                    daddr = DesignAddress(self.clean_project_name(project), project)
+                    if not daddr.valid:
+                        continue
+                    
+                    des = Design(self._project_mux, daddr.name, daddr.project_address, daddr.type, 
+                                 daddr.subtile_address, daddr.subtile_bits, project)
+                    setattr(self, daddr.name, des)
                     self._num_projects += 1
                 index = None
         except OSError:
@@ -199,7 +243,14 @@ class DesignIndex(Serializable):
                             pname = self._wokwi_name_cleanup(project['macro'], project)
                         else:
                             pname = project_name
-                        des = Design(self._project_mux, pname, project["address"], project)
+                        
+                        
+                        daddr = DesignAddress(pname, project)
+                        if not daddr.valid:
+                            continue
+                        
+                        des = Design(self._project_mux, daddr.name, daddr.project_address, daddr.type, 
+                                 daddr.subtile_address, daddr.subtile_bits, project)
                         if des.danger_level > max_allowable_danger:
                             log.error(f'Design {des.name} danger exceeds max allowed {DangerLevel.level_to_str(max_allowable_danger)}')
                             continue
@@ -359,7 +410,7 @@ class DesignIndex(Serializable):
             if not StrictMemorySaving:
                 nm = aDesign.name 
                 if not hasattr(self, nm):
-                    setattr(self, nm, DesignStub(self, aDesign.count))
+                    setattr(self, nm, DesignStub(self, aDesign.count, aDesign.type, aDesign.subtile_address, aDesign.subtile_bits))
             
     def __len__(self):
         return self._num_projects
@@ -426,6 +477,28 @@ class ProjectMux:
                 log.error(f"Danger level is '{design.danger_level_str}'.")
                 log.warn(f"call with force=True to enable")
                 return False
+            
+        # ensure all bidir pins are inputs
+        uio_pins = []
+        for i in range(8):
+            uio_pins.append(getattr(self.pins, f'uio{i}'))
+            uio_pins[i].mode = Pin.IN 
+            
+        if design.type == DesignType.GROUP:
+            log.error("Can't enable a 'GROUP'")
+            return 
+        
+        if design.type == DesignType.SUBTILE:
+            if not design.subtile_bits:
+                log.error("Have a subtile with no subtile_bits? abort")
+                return False 
+            
+            for i in range(design.subtile_bits):
+                uio_pins[i].mode = Pin.OUT 
+            
+            log.info(f'Setting subtile address to {design.subtile_address}')
+            self.pins.uio_in.value = design.subtile_address
+            
         self.reset_and_clock_mux(design.count)
         self.enabled = design
         if self.design_enabled_callback is not None:
