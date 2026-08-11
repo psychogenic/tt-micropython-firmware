@@ -130,7 +130,7 @@ jobs:
     
       - name: Build the final UF2
         run: |
-             python -m uf2utils.examples.custom_pico --family rp2350-arm-s --block_count 512 --fs_offset 0x10200000 --fs_root sdk_repo/fsroot --upython micropython/ports/rp2/build-tt_rp2350_board/firmware.uf2 --out /tmp/tt-demo-rp2350-${{ steps.version.outputs.version_name }}.uf2
+             python -m uf2utils.examples.custom_pico --family rp2350-arm-s --pico-flash 4194304 --fs-bytes 3375104 --fs_root sdk_repo/fsroot --upython micropython/ports/rp2/build-tt_rp2350_board/firmware.uf2 --out /tmp/tt-demo-rp2350-${{ steps.version.outputs.version_name }}.uf2
 
       - name: Upload UF2 artifact
         uses: actions/upload-artifact@v4
