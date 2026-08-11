@@ -513,7 +513,10 @@ class ProjectMux:
                 log.error(f"Danger level is '{design.danger_level_str}'.")
                 log.warn(f"call with force=True to enable")
                 return False
-            
+        # disable the current project, as we might twiddle
+        # the bidirs
+        self.disable() 
+        
         # ensure all bidir pins are inputs
         uio_pins = []
         for i in range(8):
