@@ -291,10 +291,11 @@ class Design(Serializable):
         self.count = addr
         self.name = self.deserialize_string(bytestream)
         self.macro = self.name
-        self.danger_level = self.deserialize_int(bytestream, 1)
+        # order here must reflect serialize
         self.type = self.deserialize_int(bytestream, 1)
         self.subtile_bits = self.deserialize_int(bytestream, 1)
         self.subtile_address = self.deserialize_int(bytestream, 1)
+        self.danger_level = self.deserialize_int(bytestream, 1)
         self.clock_hz = self.deserialize_int(bytestream, self.SerializeClockBytes)
         
     def __str__(self):

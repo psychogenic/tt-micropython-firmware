@@ -316,6 +316,7 @@ class DesignIndex(Serializable):
         self.load_all()
         bts = bytearray()
         processed = dict()
+        
         for ades in self.all:
             fulladdy = f'{ades.project_index}-{ades.subtile_address}'
             if fulladdy in processed:
@@ -330,7 +331,8 @@ class DesignIndex(Serializable):
             except Exception as e:
                 log.error(str(e))
                 log.error(f'Problem serializing {str(ades)}')
-            
+        
+        log.warning(f"Serialized {len(processed)} designs")
         return bts
 
     def from_bin_file(self, fpath:str):
