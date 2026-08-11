@@ -267,6 +267,7 @@ class Design(Serializable):
         self.mux.disable()
         
     def serialize(self):
+        log.debug(f"Serializing '{self.name}' ({DesignType.type_str(self.type)})")
         payload_data = [
                 self.name,
                 self.type,

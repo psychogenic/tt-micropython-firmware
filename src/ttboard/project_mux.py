@@ -62,6 +62,7 @@ class DesignAddress:
             if 'subtile_addr_bits' in project and 'subtile_addr' in project:
                 self.subtile_address = project['subtile_addr']
                 self.subtile_bits = project['subtile_addr_bits']
+                log.info(f'Design {self.project_address} {self.name} is a subtile @ {self.subtile_address}.')
             else:
                 log.warning(f"Don't have subtile addr and bits for SUBTILE {self.project_address} {self.name}? skip")
                 return 
@@ -283,14 +284,25 @@ class DesignIndex(Serializable):
     def project_index(self, project_name:str) -> int:
         if self.is_available(project_name):
             # return self._available_projects[project_name]
-            return getattr(self, project_name).count
+            proj = getattr(self, project_name)
+            return f'{proj.count}-{proj.subtile_address}'
         
         return None   
     
     
     def project_name(self, from_address:int) -> str:
         des_attribs = self._get_design_attribs()
-        found = list(filter(lambda x: x.count == from_address, des_attribs))
+        addr = from_address
+        subtile_addr = 0
+        if type(from_address) == str:
+            parts = from_address.split('-')
+            addr = int(parts[0])
+            if len(parts) > 1:
+                subtile_addr = int(parts[1])
+                
+        
+        
+        found = list(filter(lambda x: x.count == addr and x.subtile_address == subtile_addr, des_attribs))
         if len(found):
             return found[0].name
         return None
@@ -301,11 +313,13 @@ class DesignIndex(Serializable):
         bts = bytearray()
         processed = dict()
         for ades in self.all:
-            if ades.project_index in processed:
+            fulladdy = f'{ades.project_index}-{ades.subtile_address}'
+            if fulladdy in processed:
                 continue 
-            processed[ades.project_index] = True
-            pname = self.project_name(ades.project_index)
+            processed[fulladdy] = True
+            pname = self.project_name(fulladdy)
             ades.name = pname
+            log.info(f"Serializing '{pname}' ({fulladdy})")
             try:
                 bts += ades.serialize()
             except Exception as e:
@@ -320,6 +334,24 @@ class DesignIndex(Serializable):
         return self._num_projects
     
     def deserialize_design_by_address(self, fpath:str, project_address:int) -> Design:
+        subtile_addr = 0
+        paddr = project_address
+        if type(project_address) == str:
+            parts = project_address.split('-')
+            try:
+                paddr = int(parts[0])
+            except ValueError:
+                log.error("Use 'ADDRESS' or 'ADDRESS-SUBTILEADDRESS'")
+                return None 
+            
+            if len(parts) > 1:
+                try:
+                    subtile_addr = int(parts[1])
+                except ValueError:
+                    log.error("Use 'ADDRESS-SUBTILEADDRESS'")
+                    return None 
+                
+            
         with open(fpath, 'rb') as bytestream:
             version = self.bin_header_valid(bytestream)
             if not version:
@@ -332,12 +364,16 @@ class DesignIndex(Serializable):
                 except ValueError:
                     # empty 
                     return None
-                if addr == project_address:
+                if addr == paddr:
                     bytestream.seek(bytestream.tell() - addrAndSizeBytes)
                     des = Design(self._project_mux)
                     des.deserialize(bytestream)
                     bytestream.close()
-                    return des
+                    if subtile_addr == des.subtile_address:
+                        return des
+                    # we've advanced by one record, just move on
+                    continue
+                    
                 bytestream.seek(bytestream.tell() + size)
     
     def deserialize_find_names(self, fpath:str, partial_name:str) -> list:
