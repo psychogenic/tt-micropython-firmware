@@ -123,6 +123,8 @@ class StandardPin:
     
     def __call__(self, value:int=None):
         if value is not None:
+            if self.mode != Pin.OUT:
+                log.warning('Request to set value on pin, but mode != Pin.OUT')
             return self.raw_pin.value(value)
         return self.raw_pin.value()
     
