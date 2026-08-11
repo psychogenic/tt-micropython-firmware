@@ -331,13 +331,14 @@ class DesignStub:
         Has a side effect of replacing itself as an attribute
         in the design index so this only happens once.
     '''
-    def __init__(self, design_index, address:int, dtype:int=DesignType.PROJECT, subtile_addr:int=0, subtile_addrbits:int=0):
+    def __init__(self, design_index, address:int, dtype:int=DesignType.PROJECT, 
+                 subtile_addr:int=0, subtile_addrbits:int=0):
         self.design_index = design_index
         self.count = address
         
         self.type = dtype
-        self.subtile_bits = subtile_addrbits
         self.subtile_address = subtile_addr
+        self.subtile_bits = subtile_addrbits
         
         # self.name = projname 
         self._des = None
@@ -350,7 +351,7 @@ class DesignStub:
     
     @property 
     def project_index(self):
-        return self.count
+        return f'{self.count}-{self.subtile_address}'
     
     def __getattr__(self, name:str):
         if hasattr(self, '_des') and self._des is not None:
